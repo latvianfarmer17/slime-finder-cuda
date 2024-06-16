@@ -49,15 +49,23 @@ If I wanted to look for a sub-region containing 5 or more chunks with dimensions
 
 `SlimeFinder.exe frequency -1000000 -123456 -3 -2 3 2 5.3.3`
 
-## Results
-`SlimeFinder.exe pattern 0 1000000 -50 -50 100 100 12121.21212.12121.21212.12121`
+`SlimeFinder.exe pattern -2000000000 -1000000000 -50 -50 100 100 12121.21212.12121.21212.12121`
+
+`(+) Found seed -> -1511919784 at (15, -7) / (240, -112)`
+`(+) Found seed -> -1258237182 at (5, 7) / (80, 112)`
 
 [![](https://i.imgur.com/XNJPZxC.png)](https://i.imgur.com/XNJPZxC.png)
 
-`SlimeFinder.exe pattern 0 1000000 -50 -50 100 100 111.101.111`
+`SlimeFinder.exe pattern 0 10000000 -5 -5 10 10 111.101.111`
+
+`(+) Found seed -> 550986 at (-4, -3) / (-64, -48)`
+`(+) Found seed -> 4951472 at (0, -3) / (0, -48)`
 
 [![](https://i.imgur.com/pLfEbwI.png)](https://i.imgur.com/pLfEbwI.png)
 
 `SlimeFinder.exe pattern 0 1000000 -50 -50 100 100 121.212.101`
+
+`(+) Found seed -> 623 at (-3, -2) / (-48, -32)`
+`(+) Found seed -> 944 at (1, -1) / (16, -16)`
 
 [![](https://i.imgur.com/7c0TTHl.png)](https://i.imgur.com/7c0TTHl.png)
