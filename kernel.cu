@@ -311,14 +311,17 @@ int parseFrequency(sfData *data, char *frequency) {
         case 0:
             if (!isStringInt(token)) return 0;
             f = (int)stringToInt(token);
+            if (f <= 0) return 0;
             break;
         case 1:
             if (!isStringInt(token)) return 0;
             pw = (int)stringToInt(token);
+            if (pw <= 0) return 0;
             break;
         case 2:
             if (!isStringInt(token)) return 0;
             ph = (int)stringToInt(token);
+            if (ph <= 0) return 0;
             break;
         }
 
