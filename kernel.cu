@@ -56,8 +56,6 @@ void exitError(int errorCode);
 void launchKernel(sfData *data);
 
 __device__ int isSlimeChunk(int64_t seed, int x, int z);
-__device__ int checkPattern(sfData *data, int64_t seed, int xOff, int zOff);
-__device__ int checkFrequency(sfData *data, int64_t seed, int xOff, int zOff);
 __global__ void deviceTask(sfData *data);
 
 // Code which emulates Minecraft's slime chunk determination
@@ -82,29 +80,6 @@ __device__ int isSlimeChunk(int64_t seed, int x, int z) {
     return val == 0;
 }
 
-// Checks if the given pattern is valid for the world seed and the current region co-ordinate offset
-__device__ int checkPattern(sfData *data, int64_t seed, int xOff, int zOff) {
-    for (int i = 0; i < data->pl; i++) {
-        vec2Pattern p = data->pattern[i];
-        if (isSlimeChunk(seed, xOff + p.x, zOff + p.z) != p.type) return 0;
-    }
-
-    return 1;
-}
-
-// Counts the total slime chunks within a subset of the region
-__device__ int checkFrequency(sfData *data, int64_t seed, int xOff, int zOff) {
-    int chunksFound = 0;
-
-    for (int x = 0; x < data->pw; x++) {
-        for (int z = 0; z < data->ph; z++) {
-            if (isSlimeChunk(seed, xOff + x, zOff + z)) chunksFound++;
-        }
-    }
-
-    return chunksFound;
-}
-
 // 'Main' kernel function, evaluates the slime finder mode and looks for slime chunks accordingly
 __global__ void deviceTask(sfData *data) {
     int64_t seed = blockIdx.x * blockDim.x + threadIdx.x + data->startSeed;
@@ -114,13 +89,29 @@ __global__ void deviceTask(sfData *data) {
     if (seed <= data->endSeed && x < data->rx + data->rw - 1 && z < data->rz + data->rh - 1) {
         switch (data->mode) {
         case modePattern:
-            if (checkPattern(data, seed, x, z)) {
+            int validPattern = 1;
+
+            for (int i = 0; i < data->pl; i++) {
+                vec2Pattern p = data->pattern[i];
+                if (isSlimeChunk(seed, x + p.x, z + p.z) != p.type) {
+                    validPattern = 0;
+                    break;
+                };
+            }
+
+            if (validPattern) {
                 printf("    (+) Found seed -> %lld at (%d, %d) / (%d, %d)\a\n", seed, x, z, x << 4, z << 4);
             }
 
             break;
         case modeFrequency:
-            int frequency = checkFrequency(data, seed, x, z);
+            int frequency = 0;
+
+            for (int px = 0; px < data->pw; px++) {
+                for (int pz = 0; pz < data->ph; pz++) {
+                    if (isSlimeChunk(seed, x + px, z + pz)) frequency++;
+                }
+            }
 
             if (frequency >= data->frequency) {
                 printf("    (+) Found seed -> %lld at (%d, %d) / (%d, %d) with frequency %d\a\n", seed, x, z, x << 4, z << 4, frequency);
@@ -182,8 +173,8 @@ int main(int argc, char **argv) {
             if (helpString[i] != argv[1][i]) exitError(errInvalidMode);
         }
 
-        printf("\nSlimeFinder.exe <mode=pattern>   <start-seed> <end-seed> <rx> <rz> <rw> <rh> <pattern>\n");
-        printf("SlimeFinder.exe <mode=frequency> <start-seed> <end-seed> <rx> <rz> <rw> <rh> <frequency.srw.srh>\n\n");
+        printf("SlimeFinder.exe <mode=pattern>   <start-seed> <end-seed> <rx> <rz> <rw> <rh> <pattern>\n");
+        printf("SlimeFinder.exe <mode=frequency> <start-seed> <end-seed> <rx> <rz> <rw> <rh> <frequency.srw.srh>\n");
 
         return 0;
     }
@@ -192,8 +183,6 @@ int main(int argc, char **argv) {
     }
 
     launchKernel(&data);
-
-    cudaDeviceReset();
 
     return 0;
 }
@@ -409,7 +398,7 @@ void launchKernel(sfData *data) {
     
     // Calculate the total amount of chunks and ranges
     //  Seed
-    uint64_t seedMaxBlocks = prop.maxGridSize[0];
+    uint64_t seedMaxBlocks = prop.maxGridSize[0] >> 5;
     uint64_t seedRemainder = numBlocksSeed % seedMaxBlocks;
     int seedTotalChunks = (int)((numBlocksSeed - seedRemainder) / seedMaxBlocks);
     
