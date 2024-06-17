@@ -1,4 +1,6 @@
 # Slime Finder: CUDA
+*NOTE: This is my second CUDA project ever so the code may not be fully optimised to its full capability.*
+
 This is a program which utilises the CUDA API for **NVIDIA** GPUs to heavily improve the searching capabilities of slime chunks in Minecraft.
 
 When a *region* is referenced, this will indicate the entire range of co-ordinates that will be checked for a pattern/frequency of slime chunks. When a *sub-region* is referenced, it will talk about an area which is **within** the region.
