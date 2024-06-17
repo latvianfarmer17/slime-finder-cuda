@@ -272,18 +272,32 @@ int parsePattern(sfData *data, char *pattern) {
     data->ph = patternHeight;
     data->pl = 0;
 
+    int *patternLinear = (int *)malloc((patternWidth * patternHeight) * sizeof(int));
+    
+    if (patternLinear == NULL) return 0;
+
+    int patterLinearIndex = 0;
+
+    for (int i = 0; i < patternLength; i++) {
+        if (pattern[i] == '0' || pattern[i] == '1' || pattern[i] == '2') {
+            patternLinear[patterLinearIndex++] = pattern[i] - '0';
+        }
+    }
+
     for (int z = 0; z < patternHeight; z++) {
         for (int x = 0; x < patternWidth; x++) {
-            int patternValue = pattern[x + z * patternHeight + z] - '0';
+            int patternValue = patternLinear[x + z * patternWidth];
 
             if (patternValue != 0 && patternValue != 1 && patternValue != 2) return 0;
-            
+                   
             if (patternValue == 0 || patternValue == 1) {
                 data->pattern[patternIndex++] = {x, z, patternValue};
                 data->pl++;
             }
         }
     }
+
+    free(patternLinear);
 
     return 1;
 }
@@ -407,7 +421,7 @@ void launchKernel(sfData *data) {
     uint64_t seedsPerChunk = (seedRange - seedRangeRemainder) / (seedTotalChunks + 1);
 
     //  X
-    uint64_t xMaxBlocks = prop.maxGridSize[1];
+    uint64_t xMaxBlocks = prop.maxGridSize[1] >> 5;
     uint64_t xRemainder = numBlocksX % xMaxBlocks;
     int xTotalChunks = (int)((numBlocksX - xRemainder) / xMaxBlocks);
 
@@ -415,7 +429,7 @@ void launchKernel(sfData *data) {
     uint64_t xPerChunk = (xRange - xRangeRemainder) / (xMaxBlocks + 1);
 
     //  Z
-    uint64_t zMaxBlocks = prop.maxGridSize[2];
+    uint64_t zMaxBlocks = prop.maxGridSize[2] >> 5;
     uint64_t zRemainder = numBlocksZ % zMaxBlocks;
     int zTotalChunks = (int)((numBlocksZ - zRemainder) / zMaxBlocks);
 
