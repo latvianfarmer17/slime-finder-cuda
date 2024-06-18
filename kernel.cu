@@ -441,6 +441,7 @@ void launchKernel(sfData *data) {
     // Distribute the task across "data chunks" if there is enough data to process
     sfData *dataDevice;
     
+    printf("(?) Device      | %s\n", prop.name);
     printf("(?) Mode        | %s\n", data->mode == modePattern ? "Pattern" : "Frequency");
     printf("(?) Seed range  | %lld to %lld\n", data->startSeed, data->endSeed);
     printf("(?) Total chunks| (%d, %d, %d)\n", seedTotalChunks + 1, xTotalChunks + 1, zTotalChunks + 1);
