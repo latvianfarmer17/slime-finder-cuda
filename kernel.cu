@@ -100,7 +100,7 @@ __global__ void deviceTask(sfData *data) {
             }
 
             if (validPattern) {
-                printf("    (+) Found seed -> %lld at (%d, %d) / (%d, %d)\a\n", seed, x, z, x << 4, z << 4);
+                printf("        (+) Found seed -> %lld at (%d, %d) / (%d, %d)\a\n", seed, x, z, x << 4, z << 4);
             }
 
             break;
@@ -114,7 +114,7 @@ __global__ void deviceTask(sfData *data) {
             }
 
             if (frequency >= data->frequency) {
-                printf("    (+) Found seed -> %lld at (%d, %d) / (%d, %d) with frequency %d\a\n", seed, x, z, x << 4, z << 4, frequency);
+                printf("        (+) Found seed -> %lld at (%d, %d) / (%d, %d) with frequency %d\a\n", seed, x, z, x << 4, z << 4, frequency);
             }
 
             break;
@@ -402,17 +402,19 @@ void launchKernel(sfData *data) {
 
     // Calculate the highest amount of threads per block possible
     int tpb = (int)pow(prop.maxThreadsPerBlock, 0.3333333333333333f);
-    
+
     dim3 threadsPerBlock(tpb, tpb, tpb);
 
     // Calculate the number of blocks for each grid dimension
-    uint64_t numBlocksSeed = ((endSeed - startSeed + 1) + threadsPerBlock.x - 1) / threadsPerBlock.x;
+    uint64_t numBlocksSeed = ((endSeed - startSeed) + threadsPerBlock.x - 1) / threadsPerBlock.x;
     uint64_t numBlocksX = (xRange + threadsPerBlock.y - 1) / threadsPerBlock.y;
     uint64_t numBlocksZ = (zRange + threadsPerBlock.z - 1) / threadsPerBlock.z;
     
+    //printf("%llu %llu %llu\n", numBlocksSeed, numBlocksX, numBlocksZ);
+
     // Calculate the total amount of chunks and ranges
     //  Seed
-    uint64_t seedMaxBlocks = prop.maxGridSize[0] >> 5;
+    uint64_t seedMaxBlocks = prop.maxGridSize[0] >> 4;
     uint64_t seedRemainder = numBlocksSeed % seedMaxBlocks;
     int seedTotalChunks = (int)((numBlocksSeed - seedRemainder) / seedMaxBlocks);
     
@@ -421,28 +423,32 @@ void launchKernel(sfData *data) {
     uint64_t seedsPerChunk = (seedRange - seedRangeRemainder) / (seedTotalChunks + 1);
 
     //  X
-    uint64_t xMaxBlocks = prop.maxGridSize[1] >> 5;
+    uint64_t xMaxBlocks = prop.maxGridSize[1] >> 4;
     uint64_t xRemainder = numBlocksX % xMaxBlocks;
     int xTotalChunks = (int)((numBlocksX - xRemainder) / xMaxBlocks);
 
     uint64_t xRangeRemainder = xRange % (xMaxBlocks * tpb);
-    uint64_t xPerChunk = (xRange - xRangeRemainder) / (xMaxBlocks + 1);
+    uint64_t xPerChunk = xRange / (xTotalChunks + 1);
 
     //  Z
-    uint64_t zMaxBlocks = prop.maxGridSize[2] >> 5;
+    uint64_t zMaxBlocks = prop.maxGridSize[2] >> 4;
     uint64_t zRemainder = numBlocksZ % zMaxBlocks;
     int zTotalChunks = (int)((numBlocksZ - zRemainder) / zMaxBlocks);
 
     uint64_t zRangeRemainder = zRange % (zMaxBlocks * tpb);
-    uint64_t zPerChunk = (zRange - zRangeRemainder) / (zMaxBlocks + 1);
+    uint64_t zPerChunk = zRange / (zTotalChunks + 1);
 
     // Distribute the task across "data chunks" if there is enough data to process
     sfData *dataDevice;
+    
+    printf("(?) Mode        | %s\n", data->mode == modePattern ? "Pattern" : "Frequency");
+    printf("(?) Seed range  | %lld to %lld\n", data->startSeed, data->endSeed);
+    printf("(?) Total chunks| (%d, %d, %d)\n", seedTotalChunks + 1, xTotalChunks + 1, zTotalChunks + 1);
 
     for (int sc = 0; sc <= seedTotalChunks; sc++) {
         for (int xc = 0; xc <= xTotalChunks; xc++) {
             for (int zc = 0; zc <= zTotalChunks; zc++) {
-                printf("(?) Computing data chunk %d|%d|%d\n", sc, xc, zc);
+                printf("    (!) Computing data chunk (%d, %d, %d)\n", sc, xc, zc);
 
                 dim3 numBlocks(sc == seedTotalChunks ? seedRemainder : seedMaxBlocks, xc == xTotalChunks ? xRemainder : xMaxBlocks, zc == zTotalChunks ? zRemainder : zMaxBlocks);
                 
@@ -451,8 +457,8 @@ void launchKernel(sfData *data) {
 
                 data->rx = (xc * xPerChunk) + xStart;
                 data->rz = (zc * zPerChunk) + zStart;
-                data->rw = (xc * xPerChunk) + (xc == xTotalChunks ? xRangeRemainder : 0);
-                data->rh = (zc * zPerChunk) + (zc == zTotalChunks ? zRangeRemainder : 0);
+                data->rw = (xc * xPerChunk) + (xc == xTotalChunks ? xRangeRemainder : xPerChunk);
+                data->rh = (zc * zPerChunk) + (zc == zTotalChunks ? zRangeRemainder : zPerChunk);
 
                 cudaSafeCall(cudaMalloc((void **)&dataDevice, sizeof(sfData)));
                 cudaSafeCall(cudaMemcpy(dataDevice, data, sizeof(sfData), cudaMemcpyHostToDevice));
