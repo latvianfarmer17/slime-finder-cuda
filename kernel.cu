@@ -392,7 +392,7 @@ inline void __cudaSafeCall(cudaError_t cError, const char *file, const int line)
     if (cError != cudaSuccess) {
         printf("(%d) Error! '%s' CUDA error %d\n", errCudaError, cudaGetErrorName(cError), (int)cError);
         cudaDeviceReset();
-        exit(errCudaError);
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -428,7 +428,7 @@ void exitError(int errorCode) {
         break;
     default:
         printf("(?) Error! Unexpected error\n");
-        exit(errUnexpectedError);
+        break;
     }
 
     cudaDeviceReset();
