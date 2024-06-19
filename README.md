@@ -13,12 +13,18 @@ The *Pattern* mode will look for a specific pattern that you have provided in so
 
 The *Frequency* mode will only count the slime chunks found within a sub-region of a rectangular region within a specified seed range.
 
+There is also a third mode *Benchmark* which roughly calculates the total amount of patterns your **NVIDIA** GPU can check per second. You can provide a number of seeds to test, 100,000 to 1,000,000 seed work well with my RTX 3060. 
+
 ## Usage
 The general form for using the program is:
 
-`SlimeFinder.exe <pattern> <start-seed> <end-seed> <rx> <rz> <rw> <rh> <pattern>`
+`SlimeFinder.exe help`
 
-`SlimeFinder.exe <frequency> <start-seed> <end-seed> <rx> <rz> <rw> <rh> <frequency.srw.srh>`
+`SlimeFinder.exe benchmark <total-seeds>`
+
+`SlimeFinder.exe pattern <start-seed> <end-seed> <rx> <rz> <rw> <rh> <pattern>`
+
+`SlimeFinder.exe frequency <start-seed> <end-seed> <rx> <rz> <rw> <rh> <frequency.srw.srh>`
 
 `<mode>` can either be `pattern` or `frequency`
 `<start-seed>` is the first seed to be checked
