@@ -26,12 +26,18 @@ The general form for using the program is:
 
 `SlimeFinder.exe frequency <start-seed> <end-seed> <rx> <rz> <rw> <rh> <frequency.srw.srh>`
 
-`<mode>` can either be `pattern` or `frequency`
+The mode can either be `pattern` or `frequency`
+
 `<start-seed>` is the first seed to be checked
+
 `<end-seed>` is the last seed to be checked
+
 `<rx>` is the x-coordinate for the top-left corner of the region
+
 `<rz>` is z-coordinate for the top-left corner of the region
+
 `<rw>` is the width of the region
+
 `<rh>` is the height of the region
 
 `<pattern>` is entered by listing the rows of a 2D matrix which are delimited (separated) by `.` where `0` is not a slime chunk, `1` is a slime chunk and `2` is neither (can be a slime chunk or not, it does not matter). All the lengths of the rows should be consistent with the first row's length.
