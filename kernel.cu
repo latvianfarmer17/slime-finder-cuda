@@ -9,6 +9,7 @@
 #include <inttypes.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 
 #define SEED_RANGE(x) (x < -281474976710656 ? 0 : (x > 281474976710655 ? 0 : 1))
 #define cudaSafeCall(err) __cudaSafeCall(err, __FILE__, __LINE__)
@@ -20,7 +21,7 @@ typedef struct vec2PatternStruct {
 typedef struct sfDataStruct {
     int mode;
     int64_t startSeed, endSeed;
-    int64_t worldSeed;
+    uint64_t totalSeeds;
     int rx, rz, rw, rh;
     int pw, ph, pl;
     vec2Pattern pattern[32];
@@ -36,13 +37,15 @@ enum ErrorCode {
     errPatternSize,
     errInvalidPattern,
     errInvalidFrequency,
+    errNegativeInt,
     errCudaError,
     errUnexpectedError
 };
 
 enum FinderMode {
     modePattern,
-    modeFrequency
+    modeFrequency,
+    modeBenchmark
 };
 
 int isStringInt(char *string);
@@ -86,10 +89,12 @@ __global__ void deviceTask(sfData *data) {
     int x = blockIdx.y * blockDim.y + threadIdx.y + data->rx;
     int z = blockIdx.z * blockDim.z + threadIdx.z + data->rz;
 
+    int validPattern, frequency;
+
     if (seed <= data->endSeed && x < data->rx + data->rw - 1 && z < data->rz + data->rh - 1) {
         switch (data->mode) {
         case modePattern:
-            int validPattern = 1;
+            validPattern = 1;
 
             for (int i = 0; i < data->pl; i++) {
                 vec2Pattern p = data->pattern[i];
@@ -105,7 +110,7 @@ __global__ void deviceTask(sfData *data) {
 
             break;
         case modeFrequency:
-            int frequency = 0;
+            frequency = 0;
 
             for (int px = 0; px < data->pw; px++) {
                 for (int pz = 0; pz < data->ph; pz++) {
@@ -117,6 +122,18 @@ __global__ void deviceTask(sfData *data) {
                 printf("        (+) Found seed -> %lld at (%d, %d) / (%d, %d) with frequency %d\a\n", seed, x, z, x << 4, z << 4, frequency);
             }
 
+            break;
+        case modeBenchmark:
+            validPattern = 1;
+
+            for (int i = 0; i < data->pl; i++) {
+                vec2Pattern p = data->pattern[i];
+                if (isSlimeChunk(seed, x + p.x, z + p.z) != p.type) {
+                    validPattern = 0;
+                    break;
+                }
+            }
+            
             break;
         }
     }
@@ -164,19 +181,50 @@ int main(int argc, char **argv) {
         }
     }
     else if (argc == 2) {
-        const char helpString[5] = "help";
-        int length = stringLength(argv[1]);
+        if (stringEquate(argv[1], "help")) {
+            printf("SlimeFinder.exe help\n");
+            printf("SlimeFinder.exe benchmark <total-seeds>\n");
+            printf("SlimeFinder.exe pattern <start-seed> <end-seed> <rx> <rz> <rw> <rh> <pattern>\n");
+            printf("SlimeFinder.exe frequency <start-seed> <end-seed> <rx> <rz> <rw> <rh> <frequency.srw.srh>\n");
 
-        if (length != 4) exitError(errInvalidMode);
-
-        for (int i = 0; i < 4; i++) {
-            if (helpString[i] != argv[1][i]) exitError(errInvalidMode);
+            return 0;
         }
+        else {
+            exitError(errInvalidMode);
+        }
+    }
+    else if (argc == 3) {
+        if (stringEquate(argv[1], "benchmark")) {
+            if (!isStringInt(argv[2])) exitError(errNotInteger);
+            int64_t totalSeeds = stringToInt(argv[2]);
+            if (totalSeeds <= 0) exitError(errNegativeInt);
 
-        printf("SlimeFinder.exe <mode=pattern>   <start-seed> <end-seed> <rx> <rz> <rw> <rh> <pattern>\n");
-        printf("SlimeFinder.exe <mode=frequency> <start-seed> <end-seed> <rx> <rz> <rw> <rh> <frequency.srw.srh>\n");
+            srand(time(nullptr));
 
-        return 0;
+            data.mode = modeBenchmark;
+            data.startSeed = rand();
+            data.endSeed = data.startSeed + totalSeeds;
+            data.totalSeeds = (uint64_t)totalSeeds;
+            data.rx = -250;
+            data.rz = -250;
+            data.rw = 500;
+            data.rh = 500;
+            data.pl = 0;
+
+            int patternIndex = 0;
+
+            for (int z = 0; z < 4; z++) {
+                for (int x = 0; x < 4; x++) {
+                    if ((x + z) % 2 == 0) {
+                        data.pattern[patternIndex++] = { x, z, 1 };
+                        data.pl++;
+                    }
+                }
+            }
+        }
+        else {
+            exitError(errInvalidMode);
+        }
     }
     else {
         exitError(errArgumentCount);
@@ -372,6 +420,9 @@ void exitError(int errorCode) {
     case errInvalidFrequency:
         printf("(%d) Error! Invalid frequency\n", errorCode);
         break;
+    case errNegativeInt:
+        printf("(%d) Error! Integer must be positive\n", errorCode);
+        break;
     case errPatternSize:
         printf("(%d) Error! Pattern must fit in the region\n", errorCode);
         break;
@@ -382,7 +433,7 @@ void exitError(int errorCode) {
 
     cudaDeviceReset();
 
-    exit(errorCode);
+    exit(EXIT_FAILURE);
 }
 
 // Launches the kernel
@@ -409,8 +460,6 @@ void launchKernel(sfData *data) {
     uint64_t numBlocksSeed = ((endSeed - startSeed) + threadsPerBlock.x - 1) / threadsPerBlock.x;
     uint64_t numBlocksX = (xRange + threadsPerBlock.y - 1) / threadsPerBlock.y;
     uint64_t numBlocksZ = (zRange + threadsPerBlock.z - 1) / threadsPerBlock.z;
-    
-    //printf("%llu %llu %llu\n", numBlocksSeed, numBlocksX, numBlocksZ);
 
     // Calculate the total amount of chunks and ranges
     //  Seed
@@ -440,16 +489,28 @@ void launchKernel(sfData *data) {
 
     // Distribute the task across "data chunks" if there is enough data to process
     sfData *dataDevice;
-    
-    printf("(?) Device      | %s\n", prop.name);
-    printf("(?) Mode        | %s\n", data->mode == modePattern ? "Pattern" : "Frequency");
-    printf("(?) Seed range  | %lld to %lld\n", data->startSeed, data->endSeed);
-    printf("(?) Total chunks| (%d, %d, %d)\n", seedTotalChunks + 1, xTotalChunks + 1, zTotalChunks + 1);
+    cudaEvent_t startEvent, stopEvent;
+
+    if (data->mode == modeBenchmark) {
+        cudaSafeCall(cudaEventCreate(&startEvent));
+        cudaSafeCall(cudaEventCreate(&stopEvent));
+    }
+    else {
+        printf("(?) Device      | %s\n", prop.name);
+        printf("(?) Mode        | %s\n", data->mode == modePattern ? "Pattern" : "Frequency");
+        printf("(?) Seed range  | %lld to %lld\n", data->startSeed, data->endSeed);
+        printf("(?) Total chunks| (%d, %d, %d)\n", seedTotalChunks + 1, xTotalChunks + 1, zTotalChunks + 1);
+    }
 
     for (int sc = 0; sc <= seedTotalChunks; sc++) {
         for (int xc = 0; xc <= xTotalChunks; xc++) {
             for (int zc = 0; zc <= zTotalChunks; zc++) {
-                printf("    (!) Computing data chunk (%d, %d, %d)\n", sc, xc, zc);
+                if (data->mode != modeBenchmark) {
+                    printf("    (!) Computing data chunk (%d, %d, %d)\n", sc, xc, zc);
+                }
+                else {
+                    printf("(!) Benchmarking...\n");
+                }
 
                 dim3 numBlocks(sc == seedTotalChunks ? seedRemainder : seedMaxBlocks, xc == xTotalChunks ? xRemainder : xMaxBlocks, zc == zTotalChunks ? zRemainder : zMaxBlocks);
                 
@@ -464,10 +525,29 @@ void launchKernel(sfData *data) {
                 cudaSafeCall(cudaMalloc((void **)&dataDevice, sizeof(sfData)));
                 cudaSafeCall(cudaMemcpy(dataDevice, data, sizeof(sfData), cudaMemcpyHostToDevice));
 
+                if (data->mode == modeBenchmark) cudaSafeCall(cudaEventRecord(startEvent));
+
                 deviceTask<<< numBlocks, threadsPerBlock >>>(dataDevice);
                 
-                cudaSafeCall(cudaGetLastError());
-                cudaSafeCall(cudaDeviceSynchronize());
+                if (data->mode == modeBenchmark) {
+                    cudaSafeCall(cudaEventRecord(stopEvent));
+                    cudaSafeCall(cudaEventSynchronize(stopEvent));
+
+                    float timeTaken = 0;
+
+                    cudaSafeCall(cudaEventElapsedTime(&timeTaken, startEvent, stopEvent));
+
+                    uint64_t seedRate = (uint64_t)(data->totalSeeds * 247009000) / (uint64_t)timeTaken;
+
+                    printf("(?) Benchmark took %f ms which is approximately %llu pattern checks per second\n", timeTaken, seedRate);
+                    printf("    (?) The pattern has dimensions of 4x4 with 50%% of chunks being slime chunks\n");
+                    printf("    (?) A region of (-250, -250, 500, 500) was checked with %llu seeds\n", data->totalSeeds);
+                    printf("    (?) So a region of (-50, -50, 100, 100) could check %llu seeds instead\n", seedRate / 9409);
+                    printf("        with the same pattern in the same amount of time (roughly speaking)\n");
+                }
+                else {
+                    cudaSafeCall(cudaDeviceSynchronize());
+                }
 
                 cudaSafeCall(cudaFree(dataDevice));
             }
