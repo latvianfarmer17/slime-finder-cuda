@@ -25,6 +25,8 @@ The general form for using the program is:
 `SlimeFinder.exe pattern <start-seed> <end-seed> <rx> <rz> <rw> <rh> <pattern>`
 
 `SlimeFinder.exe frequency <start-seed> <end-seed> <rx> <rz> <rw> <rh> <frequency.srw.srh>`
+
+
 The mode can either be `pattern` or `frequency`
 
 `<start-seed>` is the first seed to be checked
