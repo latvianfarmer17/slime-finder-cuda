@@ -108,7 +108,7 @@ __declspec(dllexport) void launchKernel(Data *data) {
     const int xRange = data->rw;
     const int zRange = data->rh;
 
-    int tpb = (int)pow(prop.maxThreadsPerBlock, 0.3333333333333333f);
+    int tpb = 1 << (int)log2(pow(prop.maxThreadsPerBlock, 0.3333333333333333f));
 
     dim3 threadsPerBlock(tpb, tpb, tpb);
 
