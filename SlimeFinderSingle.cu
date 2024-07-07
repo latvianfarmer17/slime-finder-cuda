@@ -1,3 +1,6 @@
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -56,7 +59,6 @@ void exitError(int errorCode);
 
 __device__ int isSlimeChunk(I64 seed, int x, int z);
 __global__ void deviceTask(Data *data);
-
 inline void __cudaSafeCall(cudaError_t cError, const char *file, const int line);
 void launchKernel(Data *data);
 
@@ -348,13 +350,23 @@ __device__ int isSlimeChunk(I64 seed, int x, int z) {
     seed += (I64)(z * z) * 0x4307a7L;
     seed += (I64)(z * 0x5f24f);
     seed ^= 0x3ad8025fL;
+
     seed ^= 0x5deece66dL;
     seed &= 0xffffffffffff;
-    return (((seed * 0x5deece66dL + 0xbL) & 0xffffffffffff) >> 17) % 10 == 0;
+
+    int bits, val;
+
+    do {
+        seed = (seed * 0x5deece66dL + 0xbL) & 0xffffffffffff;
+        bits = (int)(seed >> 17);
+        val = bits % 10;
+    } while (bits - val + 9 < 0);
+
+    return val == 0;
 }
 
 __global__ void deviceTask(Data *data) {
-    int64_t seed = blockIdx.x * blockDim.x + threadIdx.x + data->startSeed;
+    I64 seed = blockIdx.x * blockDim.x + threadIdx.x + data->startSeed;
     int x = blockIdx.y * blockDim.y + threadIdx.y + data->rx;
     int z = blockIdx.z * blockDim.z + threadIdx.z + data->rz;
 
@@ -509,7 +521,7 @@ void launchKernel(Data *data) {
 
                     cudaSafeCall(cudaEventElapsedTime(&timeTaken, startEvent, stopEvent));
 
-                    uint64_t seedRate = (uint64_t)(data->totalSeeds * 247009000) / (uint64_t)timeTaken;
+                    U64 seedRate = (U64)(data->totalSeeds * 247009000) / (U64)timeTaken;
 
                     printf("(?) Benchmark took %f ms which is approximately %llu pattern checks per second\n", timeTaken, seedRate);
                     printf("    (?) The pattern has dimensions of 4x4 with 50%% of chunks being slime chunks\n");
