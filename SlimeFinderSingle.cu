@@ -3,7 +3,6 @@
 #include <cstring>
 #include <cmath>
 #include <ctime>
-#include <windows.h>
 
 #define cudaSafeCall(err) __cudaSafeCall(err, __FILE__, __LINE__)
 #define SEED_RANGE(x) (x < -281474976710656 ? 0 : (x > 281474976710655 ? 0 : 1))
