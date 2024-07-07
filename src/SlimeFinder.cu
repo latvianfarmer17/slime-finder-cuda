@@ -16,19 +16,9 @@ __declspec(dllexport) __device__ int isSlimeChunk(I64 seed, int x, int z) {
     seed += (I64)(z * z) * 0x4307a7L;
     seed += (I64)(z * 0x5f24f);
     seed ^= 0x3ad8025fL;
-
     seed ^= 0x5deece66dL;
     seed &= 0xffffffffffff;
-
-    int bits, val;
-
-    do {
-        seed = (seed * 0x5deece66dL + 0xbL) & 0xffffffffffff;
-        bits = (int)(seed >> 17);
-        val = bits % 10;
-    } while (bits - val + 9 < 0);
-
-    return val == 0;
+    return (((seed * 0x5deece66dL + 0xbL) & 0xffffffffffff) >> 17) % 10 == 0;
 }
 
 __declspec(dllexport) __global__ void deviceTask(Data *data) {
